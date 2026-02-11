@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Journal (Python)</title>
+    <style>
+        body { font-family: sans-serif; max_width: 800px; margin: 0 auto; padding: 20px; background: #f4f4f9; }
+        h1 { color: #333; }
+        .entry { background: white; padding: 15px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .entry h2 { margin-top: 0; }
+        form { background: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .delete-btn { background: #dc3545; float: right; }
+    </style>
+</head>
+<body>
+    <h1>Developer Journal (Flask Version)</h1>
+    
+    <form action="/add" method="POST">
+        <input type="text" name="title" placeholder="Title" required>
+        <textarea name="content" placeholder="Content" rows="4" required></textarea>
+        <button type="submit">Add Entry</button>
+    </form>
+
+    <div id="entries">
+        {% for entry in entries %}
+        <div class="entry">
+            <a href="/delete/{{ entry.id }}" class="delete-btn"><button class="delete-btn">Delete</button></a>
+            <h2>{{ entry.title }}</h2>
+            <p>{{ entry.content }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

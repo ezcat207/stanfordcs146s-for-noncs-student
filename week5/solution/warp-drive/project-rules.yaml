@@ -1,0 +1,326 @@
+# Warp Rules for FastAPI Starter Application
+# These rules are always active when working in this project
+
+name: FastAPI Project Standards
+description: Coding and workflow standards for week5 starter application
+project_path: ~/projects/week5/  # Update to your actual path
+active: true
+
+rules:
+  # === Code Style ===
+
+  - name: Type Hints Required
+    description: All function parameters and return types must have type hints
+    example: |
+      # ✅ Good
+      def create_note(title: str, content: str, db: Session) -> Note:
+          pass
+
+      # ❌ Bad
+      def create_note(title, content, db):
+          pass
+    enforcement: strict
+
+  - name: Pydantic for Validation
+    description: Use Pydantic schemas for all request/response validation
+    details: |
+      - Define schemas in backend/app/schemas.py
+      - Use for FastAPI request bodies and response models
+      - Never do manual validation checks
+    example: |
+      # ✅ Good
+      @router.post("/", response_model=NoteRead, status_code=201)
+      def create_note(payload: NoteCreate, db: Session = Depends(get_db)):
+          pass
+
+      # ❌ Bad
+      @router.post("/")
+      def create_note(data: dict, db: Session = Depends(get_db)):
+          if "title" not in data or len(data["title"]) < 1:
+              raise ValueError("Invalid title")
+
+  - name: No Print Statements
+    description: Never use print() for debugging or logging
+    alternative: Use Python's logging module or rely on test output
+    example: |
+      # ✅ Good
+      import logging
+      logger = logging.getLogger(__name__)
+      logger.info(f"Creating note: {title}")
+
+      # ❌ Bad
+      print(f"Creating note: {title}")
+
+  - name: Code Formatting
+    description: Always run 'make format' before completing any task
+    command: make format
+    when: Before finishing any code changes
+
+  - name: Linting
+    description: Always run 'make lint' and fix issues before task completion
+    command: make lint
+    when: Before declaring task complete
+
+  # === API Design Patterns ===
+
+  - name: HTTP Status Codes
+    description: Use appropriate HTTP status codes for all responses
+    mapping:
+      200: "Success for GET, PUT, PATCH operations"
+      201: "Created - use for POST operations"
+      204: "No content - use for DELETE operations"
+      400: "Bad request - validation errors, malformed input"
+      404: "Not found - resource doesn't exist"
+      422: "Unprocessable entity - validation failed (FastAPI default)"
+      500: "Server error - avoid by proper exception handling"
+    example: |
+      @router.post("/", response_model=NoteRead, status_code=201)  # ✅
+      @router.delete("/{id}", status_code=204)                     # ✅
+      @router.get("/{id}", response_model=NoteRead)                # ✅ 200 is default
+
+  - name: Error Handling
+    description: Always use HTTPException for API errors
+    details: Never return error strings or generic exceptions from endpoints
+    example: |
+      # ✅ Good
+      from fastapi import HTTPException
+
+      note = db.get(Note, note_id)
+      if not note:
+          raise HTTPException(status_code=404, detail="Note not found")
+
+      # ❌ Bad
+      note = db.get(Note, note_id)
+      if not note:
+          return {"error": "Note not found"}
+
+  - name: Response Models
+    description: Always specify response_model for endpoints
+    why: |
+      - Automatic validation of response data
+      - OpenAPI documentation generation
+      - Type safety
+    example: |
+      @router.get("/", response_model=list[NoteRead])  # ✅
+
+  # === Testing Standards ===
+
+  - name: TDD Required
+    description: Write tests BEFORE implementation (Test-Driven Development)
+    workflow: |
+      1. Write test in backend/tests/test_<router>.py
+      2. Run test - it should fail
+      3. Implement the feature
+      4. Run test - it should pass
+    strict: true
+
+  - name: Test File Organization
+    description: Test files must follow naming convention
+    pattern: backend/tests/test_<router_name>.py
+    examples:
+      - backend/tests/test_notes.py
+      - backend/tests/test_action_items.py
+
+  - name: Minimum Test Coverage
+    description: Every endpoint needs at least 3 test cases
+    required_tests:
+      - happy_path: "Successful request with valid data"
+      - error_case: "404 Not Found OR 400 Bad Request"
+      - edge_case: "Boundary conditions or special scenarios"
+    example: |
+      # For GET /notes/{id}
+      def test_get_note_success(client, sample_note):          # Happy path
+      def test_get_note_not_found(client):                     # Error case
+      def test_get_note_with_special_characters(client):       # Edge case
+
+  - name: Test Execution Before Completion
+    description: Always run 'make test' before declaring a task complete
+    command: make test
+    when: Before finishing any feature or bug fix
+    block_on_failure: true
+
+  # === Database Patterns ===
+
+  - name: SQLAlchemy ORM Only
+    description: Never write raw SQL queries
+    use: SQLAlchemy ORM with select() statements
+    example: |
+      # ✅ Good
+      from sqlalchemy import select
+      notes = db.execute(select(Note).where(Note.id == note_id)).scalars().all()
+
+      # ❌ Bad
+      db.execute("SELECT * FROM notes WHERE id = ?", (note_id,))
+
+  - name: Flush and Refresh Pattern
+    description: Use db.flush() + db.refresh() when you need ID immediately
+    when: Creating a resource and returning it in the response
+    example: |
+      note = Note(title=payload.title, content=payload.content)
+      db.add(note)
+      db.flush()      # Assigns ID without committing transaction
+      db.refresh(note)  # Reloads object with ID
+      return NoteRead.model_validate(note)
+
+  - name: Transactions for Bulk Operations
+    description: Use database transactions for operations affecting multiple rows
+    example: |
+      # ✅ Good
+      try:
+          for item_id in item_ids:
+              item = db.get(ActionItem, item_id)
+              if not item:
+                  raise HTTPException(404, f"Item {item_id} not found")
+              item.completed = True
+              db.add(item)
+          db.commit()
+      except Exception:
+          db.rollback()
+          raise
+
+  # === Git Workflow ===
+
+  - name: Test Before Commit
+    description: Never commit code with failing tests
+    command: make test
+    when: Before every git commit
+    enforcement: strict
+
+  - name: Conventional Commits
+    description: Follow conventional commit message format
+    format: "<type>: <description>"
+    types:
+      feat: "New feature"
+      fix: "Bug fix"
+      test: "Add or modify tests"
+      docs: "Documentation changes"
+      refactor: "Code refactoring (no behavior change)"
+      style: "Formatting changes (no code logic change)"
+      chore: "Maintenance tasks"
+    examples:
+      - "feat: Add search endpoint for notes"
+      - "fix: Handle empty search query correctly"
+      - "test: Add edge cases for note creation"
+      - "docs: Update API.md with new endpoints"
+
+  - name: Feature Branches
+    description: Never commit directly to main branch
+    workflow: |
+      1. Create feature branch: git checkout -b feature/task-name
+      2. Make changes and commit
+      3. Push and create PR
+      4. Merge after review
+    enforcement: strict
+
+  # === File Structure ===
+
+  - name: File Locations
+    description: Know where each type of file belongs
+    structure:
+      routers: backend/app/routers/
+      models: backend/app/models.py
+      schemas: backend/app/schemas.py
+      tests: backend/tests/
+      frontend: frontend/
+      docs: docs/
+
+  # === Common Workflows ===
+
+  - name: Adding a New Endpoint
+    description: Standard workflow for creating new API endpoints
+    steps:
+      1: "Write test in backend/tests/test_<router>.py"
+      2: "Run test with: pytest backend/tests/test_<router>.py::test_name -v"
+      3: "Test should fail (no implementation yet)"
+      4: "Implement endpoint in backend/app/routers/<router>.py"
+      5: "Include type hints, Pydantic schemas, docstring"
+      6: "Run test again - should pass"
+      7: "Run make format && make lint"
+      8: "Run make test (full suite)"
+      9: "Update docs/API.md with endpoint documentation"
+      10: "Commit with: git commit -m 'feat: Add <endpoint description>'"
+
+  - name: Modifying Existing Code
+    description: Workflow for changing existing functionality
+    steps:
+      1: "Read existing tests to understand current behavior"
+      2: "Add new test cases for the modification"
+      3: "Run tests - new tests should fail"
+      4: "Make the code change"
+      5: "Run all tests - ensure both old and new tests pass"
+      6: "Run make format && make lint"
+      7: "Update documentation if API changed"
+
+  # === Safety Rules ===
+
+  - name: Never Delete Without Backup
+    description: Never delete database files without confirmation
+    files_to_protect:
+      - data/db.sqlite
+      - Any .env file
+    action_required: Ask user before deleting
+
+  - name: Never Skip Pre-commit Hooks
+    description: Never use --no-verify flag when committing
+    reason: Pre-commit hooks enforce code quality standards
+
+  - name: Destructive Actions Require Confirmation
+    description: Always ask before taking irreversible actions
+    actions_requiring_confirmation:
+      - Deleting files
+      - Dropping database tables
+      - Force pushing to git
+      - Modifying main branch directly
+
+  # === Performance Considerations ===
+
+  - name: Add Database Indexes
+    description: Add indexes for frequently queried fields
+    candidates:
+      - Foreign keys
+      - Fields used in WHERE clauses
+      - Fields used in ORDER BY clauses
+    example: |
+      # In models.py
+      class Note(Base):
+          __tablename__ = "notes"
+          title = Column(String, index=True)  # ✅ Indexed for search
+
+  # === Documentation ===
+
+  - name: Update API Documentation
+    description: Keep docs/API.md in sync with code
+    when: After adding or modifying any endpoint
+    format: |
+      ### METHOD /path
+
+      **Description:** What this endpoint does
+
+      **Request:**
+      ```json
+      { "example": "request body" }
+      ```
+
+      **Response:**
+      ```json
+      { "example": "response body" }
+      ```
+
+      **Errors:**
+      - 400: Validation error
+      - 404: Not found
+
+# === Integration with Warp ===
+
+warp_integration:
+  - Apply these rules to all AI-generated code
+  - Reference rules when suggesting solutions
+  - Enforce rules before declaring task complete
+  - Remind user of relevant rules during workflows
+
+# === Severity Levels ===
+
+severity:
+  strict: Must be followed always (blocking)
+  recommended: Should be followed (warning)
+  optional: Nice to have (informational)

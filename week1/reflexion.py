@@ -15,7 +15,17 @@ Keep the implementation minimal.
 """
 
 # TODO: Fill this in!
-YOUR_REFLEXION_PROMPT = ""
+YOUR_REFLEXION_PROMPT = """
+You are a skilled Python coding assistant.
+You will be provided with a function implementation and a list of test failures.
+Your goal is to WRITE A FIXED VERSION of the function that passes all tests.
+
+RULES:
+1. Output ONLY the complete python code for the fixed function.
+2. NO conversational text, NO explanations, NO markdown formatting (unless it's a code block).
+3. The function signature must remain: def is_valid_password(password: str) -> bool:
+4. Fix the logic errors identified by the test failures.
+"""
 
 
 # Ground-truth test suite used to evaluate generated code
@@ -81,7 +91,7 @@ def evaluate_function(func: Callable[[str], bool]) -> Tuple[bool, List[str]]:
 
 def generate_initial_function(system_prompt: str) -> str:
     response = chat(
-        model="llama3.1:8b",
+        model="deepseek-v3.1:671b-cloud",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Provide the implementation now."},
@@ -92,11 +102,15 @@ def generate_initial_function(system_prompt: str) -> str:
 
 
 def your_build_reflexion_context(prev_code: str, failures: List[str]) -> str:
-    """TODO: Build the user message for the reflexion step using prev_code and failures.
-
-    Return a string that will be sent as the user content alongside the reflexion system prompt.
-    """
-    return ""
+    """Build the user message for the reflexion step using prev_code and failures."""
+    failure_text = "\n".join(f"- {f}" for f in failures)
+    return (
+        f"Here is the previous implementation:\n"
+        f"```python\n{prev_code}\n```\n\n"
+        f"It failed the following tests:\n"
+        f"{failure_text}\n\n"
+        f"Please provide the corrected implementation now."
+    )
 
 
 def apply_reflexion(
@@ -108,7 +122,7 @@ def apply_reflexion(
     reflection_context = build_context(prev_code, failures)
     print(f"REFLECTION CONTEXT: {reflection_context}, {reflexion_prompt}")
     response = chat(
-        model="llama3.1:8b",
+        model="deepseek-v3.1:671b-cloud",
         messages=[
             {"role": "system", "content": reflexion_prompt},
             {"role": "user", "content": reflection_context},

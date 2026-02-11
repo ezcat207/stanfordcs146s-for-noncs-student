@@ -37,7 +37,11 @@ QUESTION = (
 
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = """
+You are a helpful coding assistant.
+Your task is to write a Python function based on the provided context.
+Use the information from the context (API documentation) to implement the function correctly.
+"""
 
 
 # For this simple example
@@ -56,7 +60,10 @@ def YOUR_CONTEXT_PROVIDER(corpus: List[str]) -> List[str]:
 
     For example, return [] to simulate missing context, or [corpus[0]] to include the API docs.
     """
-    return []
+    # In a real RAG system, you would use embeddings to find relevant docs.
+    # For this simple assignment where we only have one doc in the corpus that is relevant,
+    # we just return the whole corpus (or specifically the first item).
+    return corpus
 
 
 def make_user_prompt(question: str, context_docs: List[str]) -> str:
@@ -97,7 +104,7 @@ def test_your_prompt(system_prompt: str, context_provider: Callable[[List[str]],
     for idx in range(NUM_RUNS_TIMES):
         print(f"Running test {idx + 1} of {NUM_RUNS_TIMES}")
         response = chat(
-            model="llama3.1:8b",
+            model="deepseek-v3.1:671b-cloud",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
